@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clinical Risk Predictor Dashboard - MariaDB/PHP Real-Time</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --primary-color: #005691;
+      --secondary-color: #6c757d;
+      --success-color: #058f70;
+      --warning-color: #fca510;
+      --danger-color: #d83a48;
+      --info-color: #00a4b4;
+      --bg-light: #fdfdfd;
+      --font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-light);
+      font-family: var(--font-family);
+    }
+
+    .container-fluid {
+      padding-top: 3rem;
+    }
+
+    .card {
+      border-radius: 1.25rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      border: none;
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      transform: translateY(-5px);
+    }
+
+    .card-header {
+      background-image: linear-gradient(135deg, var(--primary-color) 0%, #0076a3 100%);
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-top-left-radius: 1.25rem;
+      border-top-right-radius: 1.25rem;
+      padding: 1.1rem 1.5rem;
+      border-bottom: 0;
+    }
+
+    .kpi-card {
+      position: relative;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .kpi-card.border-start.border-primary {
+      box-shadow: 0 0 15px rgba(0, 86, 145, 0.2);
+    }
+
+    .kpi-card.border-start.border-danger {
+      box-shadow: 0 0 15px rgba(216, 58, 72, 0.2);
+    }
+
+    .kpi-card.border-start.border-warning {
+      box-shadow: 0 0 15px rgba(252, 165, 16, 0.2);
+    }
+
+    .kpi-card.border-start.border-success {
+      box-shadow: 0 0 15px rgba(5, 143, 112, 0.2);
+    }
+
+    .kpi-card .card-body {
+      text-align: center;
+      padding: 1.75rem 1rem;
+    }
+
+    .kpi-card .kpi-value {
+      font-size: 2.4rem;
+      font-weight: 800;
+      line-height: 1.1;
+      color: var(--primary-color);
+    }
+
+    .kpi-card .kpi-label {
+      font-size: 0.8rem;
+      color: var(--secondary-color);
+      margin-top: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+
+    .table-responsive {
+      border-radius: 0.75rem;
+      overflow: hidden;
+      border: 1px solid #e0e6ed;
+    }
+
+    .table-striped>tbody>tr:nth-of-type(odd)>* {
+      background-color: #f8f9fa;
+    }
+
+    .table thead th {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #4a5568;
+      background-color: #eef1f5;
+      border-bottom: 1px solid #e0e6ed;
+    }
+
+    .table tbody td {
+      font-size: 0.85rem;
+      padding: 0.8rem 0.5rem;
+    }
+
+    /* --- Risk Color Coding (Clean) --- */
+    .risk-critical {
+      color: var(--danger-color);
+      font-weight: 700;
+    }
+
+    .risk-high {
+      color: var(--warning-color);
+      font-weight: 600;
+    }
+
+    .risk-medium {
+      color: var(--info-color);
+      font-weight: 500;
+    }
+
+    .risk-low {
+      color: var(--success-color);
+      font-weight: 500;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <div class="container-fluid my-4">
+    <h1 class="text-center mb-5" style="color: var(--primary-color); font-weight: 800;">
+      🏥 Clinical Risk Predictor Dashboard
+    </h1>
+
+    <div class="row mb-5">
+      <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card kpi-card border-start border-primary border-5">
+          <div class="card-body">
+            <div class="kpi-value" id="totalPatients">0</div>
+            <div class="kpi-label">Total Patients Monitored</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card kpi-card border-start border-danger border-5">
+          <div class="card-body">
+            <div class="kpi-value text-danger" id="highRiskCount">0</div>
+            <div class="kpi-label">Patients in Critical Risk</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card kpi-card border-start border-warning border-5">
+          <div class="card-body">
+            <div class="kpi-value text-warning" id="avgRiskLevel">0.00</div>
+            <div class="kpi-label">Overall Average Risk Score</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card kpi-card border-start border-success border-5">
+          <div class="card-body">
+            <div class="kpi-value text-success" id="updateCounter">0</div>
+            <div class="kpi-label">API Data Calls</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card mb-5">
+      <div class="card-header">Patient Cohort Analysis</div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover align-middle">
+            <thead>
+              <tr class="table-light">
+                <th>Name</th>
+                <th>Age</th>
+                <th>Gender</th>
+                <th>Primary Diagnosis</th>
+                <th>Risk Score (0-1)</th>
+                <th>Risk Level</th>
+              </tr>
+            </thead>
+            <tbody id="patientTable">
+              <tr>
+                <td colspan="6" class="text-center text-muted">Awaiting connection
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-4 mb-4">
+        <div class="card">
+          <div class="card-header"
+            style="background-image: linear-gradient(135deg, var(--success-color) 0%, #29b673 100%);">
+            Risk Distribution by Age Group
+          </div>
+          <div class="card-body">
+            <canvas id="ageRiskChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4 mb-4">
+        <div class="card">
+          <div class="card-header"
+            style="background-image: linear-gradient(135deg, var(--info-color) 0%, #00c1d1 100%);">
+            High Risk Patients by Diagnosis
+          </div>
+          <div class="card-body">
+            <canvas id="diseaseRiskChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4 mb-4">
+        <div class="card">
+          <div class="card-header"
+            style="background-image: linear-gradient(135deg, var(--warning-color) 0%, #ffcf48 100%);">
+            Monthly Appointment Volume
+          </div>
+          <div class="card-body">
+            <canvas id="appointmentChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const API_ENDPOINT = 'http://localhost/dataengineering/api.php';
+
+    let ageRiskChart, diseaseRiskChart, appointmentChart;
+    let updateCount = 0;
+
+    function getRiskDetails(riskScore) {
+      if (riskScore >= 0.85) {
+        return { text: "Critical", class: "risk-critical" };
+      } else if (riskScore >= 0.70) {
+        return { text: "High", class: "risk-high" };
+      } else if (riskScore >= 0.50) {
+        return { text: "Medium", class: "risk-medium" };
+      } else {
+        return { text: "Low", class: "risk-low" };
+      }
+    }
+
+    async function updateDashboard() {
+      const tableBody = document.getElementById("patientTable");
+      let patients = [];
+      let analysisData = {};
+
+      try {
+        const response = await fetch(API_ENDPOINT);
+
+        if (!response.ok) {
+          throw new Error(`API returned status ${response.status}`);
+        }
+
+        const responseData = await response.json();
+
+        if (responseData.error) {
+          throw new Error(responseData.error);
+        }
+
+        patients = responseData.patients || [];
+        analysisData = responseData.analysis || {};
+
+      } catch (error) {
+        console.error("API Error:", error);
+        tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">
+                    Failed to fetch data from MariaDB. Error: ${error.message}. Check API path and PHP server.
+                </td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = '';
+      let totalRisk = 0;
+      let criticalRiskPatients = 0;
+      let totalAge = 0;
+
+      patients.forEach((p) => {
+        const riskScore = parseFloat(p.risk);
+        const { text, class: riskClass } = getRiskDetails(riskScore);
+
+        totalRisk += riskScore;
+        totalAge += parseInt(p.age);
+        if (riskScore >= 0.85) criticalRiskPatients++;
+
+        const row = document.createElement("tr");
+        row.style.transition = 'background-color 0.5s ease';
+        row.style.backgroundColor = p.isUpdated ? 'rgba(0, 123, 255, 0.1)' : 'transparent';
+        setTimeout(() => row.style.backgroundColor = 'transparent', 1000);
+
+        row.innerHTML = `
+                    <td>${p.name}</td>
+                    <td>${p.age}</td>
+                    <td>${p.gender}</td>
+                    <td>${p.disease}</td>
+                    <td>${riskScore.toFixed(2)}</td>
+                    <td class="${riskClass}">${text}</td>
+                `;
+        tableBody.appendChild(row);
+      });
+
+      const avgRisk = patients.length > 0 ? (totalRisk / patients.length).toFixed(2) : '0.00';
+
+      document.getElementById("totalPatients").textContent = patients.length;
+      document.getElementById("highRiskCount").textContent = criticalRiskPatients;
+      document.getElementById("avgRiskLevel").textContent = avgRisk;
+
+      updateCount++;
+      document.getElementById("updateCounter").textContent = updateCount;
+
+
+      if (ageRiskChart && analysisData.riskByAge) {
+        ageRiskChart.data.datasets[0].data = analysisData.riskByAge.scores.map(s => s.toFixed(2));
+        ageRiskChart.update();
+      }
+
+      if (diseaseRiskChart && analysisData.riskByDisease) {
+        diseaseRiskChart.data.labels = analysisData.riskByDisease.labels;
+        diseaseRiskChart.data.datasets[0].data = analysisData.riskByDisease.counts;
+        diseaseRiskChart.update();
+      }
+
+      if (appointmentChart && analysisData.appointmentVolume) {
+        appointmentChart.data.labels = analysisData.appointmentVolume.labels;
+        appointmentChart.data.datasets[0].data = analysisData.appointmentVolume.counts;
+        appointmentChart.options.plugins.title.text = 'Clinical Appointment Trend (Last 12 Months)';
+        appointmentChart.update();
+      }
+    }
+
+    function initializeCharts() {
+
+      ageRiskChart = new Chart(document.getElementById("ageRiskChart"), {
+        type: "bar",
+        data: {
+          labels: ["< 30", "30-49", "50-69", "70+"],
+          datasets: [{
+            label: "Average Risk Score",
+            data: [0.0, 0.0, 0.0, 0.0],
+            backgroundColor: ["#00a4b4", "#f59e0b", "#fd7e14", "#c53030"],
+            borderColor: '#fff',
+            borderWidth: 1
+          }],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: { display: true, text: 'Average Risk by Age', color: '#4a5568' }
+          },
+          scales: {
+            y: { beginAtZero: true, max: 1.0, title: { display: true, text: 'Risk Score' } },
+            x: { grid: { display: false } }
+          },
+        },
+      });
+
+      diseaseRiskChart = new Chart(document.getElementById("diseaseRiskChart"), {
+        type: "doughnut",
+        data: {
+          labels: ["Loading..."],
+          datasets: [{
+            data: [100],
+            backgroundColor: ["#c53030", "#f59e0b", "#00a4b4", "#047857", "#4a5568", "#fd7e14"],
+            hoverOffset: 4
+          }],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'right' },
+            title: { display: true, text: 'Patient Count by Top Conditions', color: '#4a5568' }
+          }
+        }
+      });
+
+      appointmentChart = new Chart(document.getElementById("appointmentChart"), {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [{
+            label: "Appointments",
+            data: [],
+            borderColor: "var(--primary-color)",
+            backgroundColor: "rgba(0, 75, 122, 0.1)",
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2
+          }],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: { display: true, text: 'Loading Appointment Trend...', color: '#4a5568' }
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Total Appointments' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+
+      updateDashboard();
+    }
+
+    document.addEventListener('DOMContentLoaded', initializeCharts);
+
+  </script>
+</body>
+
+</html>
